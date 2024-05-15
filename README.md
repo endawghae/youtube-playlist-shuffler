@@ -21,7 +21,7 @@ Run the python script in the repo
 
 Download [VLC media player](https://www.videolan.org/)
 
-Attempt to run the exe file in the repo
+Run the exe file in the repo
 
 (Optional) Fight with your antivirus as it kneels and begs for you not to run it
 
