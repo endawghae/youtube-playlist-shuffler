@@ -17,8 +17,12 @@ Download VLC media player linked above
 
 Run the python script in the repo
 
-###Option 2: Exe file (spooky)
+### Option 2: Exe file (spooky)
 
 Download VLC media player linked above
 
 Run the exe file in the repo
+
+## Demo
+https://github.com/endawghae/youtube-playlist-shuffler/assets/94265058/b746ee12-9e6b-4bd1-8d77-3fad27a5df4f
+
