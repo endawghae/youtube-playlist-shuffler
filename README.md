@@ -9,7 +9,7 @@ Because we are using a VLC library for audio playback, [VLC media player](https:
 
 ## Installation
 ### Option 1: Python Script
-[Download Python 3.8](https://www.python.org/downloads/) (not tested for newer versions)
+[Download Python 3.8](https://www.python.org/downloads/) (not tested for newer versions, feel free to try)
 
 Download the libraries the libraries [VLC](https://wiki.videolan.org/Python_bindings/), [yt_dlp](https://github.com/yt-dlp/yt-dlp) manually or using pip install
 
