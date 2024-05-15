@@ -21,7 +21,9 @@ Run the python script in the repo
 
 Download [VLC media player](https://www.videolan.org/)
 
-Run the exe file in the repo
+Attempt to run the exe file in the repo
+
+(Optional) Fight with your antivirus as it kneels and begs for you not to run it
 
 ## Demo
 https://github.com/endawghae/youtube-playlist-shuffler/assets/94265058/b746ee12-9e6b-4bd1-8d77-3fad27a5df4f
