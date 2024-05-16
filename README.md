@@ -1,6 +1,6 @@
 # youtube-playlist-shuffler
 Youtube's desktop site shuffles playlists by repeatedly picking a random song which results in repeats during a session and Youtube's mobile app shuffles playlists correctly but is inundated with ads (for free riders like me). 
-To my knowledge, neither let you continue a session/save the current shuffle order to pick up from later as well.
+To my knowledge, neither let you continue a session/save the current shuffle order to pick up from later either.
 This project features a simple GUI that lets you listen to youtube playlists with proper shuffling and session saving.
 
 Project uses Python 3.8 and uses the libraries [VLC](https://wiki.videolan.org/Python_bindings/) for audio playback, [yt_dlp](https://github.com/yt-dlp/yt-dlp) (formerly [youtube_dl](https://github.com/ytdl-org/youtube-dl)) to fetch data from youtube links, and [tkinter](https://docs.python.org/3/library/tkinter.html) for GUI.
