@@ -4,6 +4,7 @@ import random
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
+from tkinter import filedialog
 import json
 import vlc
 import yt_dlp
@@ -12,7 +13,7 @@ import yt_dlp
 def newSession():
     mainframe.grid_forget()
     playerframe.grid_forget()
-    
+    sessionFrame.grid_forget()
     urlframe.grid()
     
     root.bind('<Return>', tryURL)
@@ -21,28 +22,47 @@ def newSession():
 
 #Display player GUI, read session file for setup
 def resumeSession():
+    global sessionSavePath
+    global sessionName
+    
     root.unbind('<Return>')
-    root.unbind('<Escaoe>')
-    
-    mainframe.grid_forget()
-    urlframe.grid_forget()
-    playerframe.grid()
-    
-    session = open("session.txt", "r", encoding = 'utf8')
+    root.unbind('<Escape>')
+
+    messagebox.showwarning(title="Select a session save", message="Be sure to only select session saves in the sessions folder, or the player may not function")
+
+    save = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")], initialdir = sessionSavePath)
+    sessionName = save.split('/')[-1]
+    session = open(save, "r", encoding = 'utf8')
     lines = session.readlines()
     session.close()
     for song in range(1, len(lines) - 1):
         playlistBox.insert("end", lines[song])
+
+    mainframe.grid_forget()
+    urlframe.grid_forget()
+    sessionFrame.grid_forget()
+    playerframe.grid()
+    
     resumePlayer(lines[-1].split(), int(lines[0]))
     return
+
+def nameSession():
+    mainframe.grid_forget()
+    playerframe.grid_forget()
+    urlframe.grid_forget()
+    sessionFrame.grid()
+    root.bind('<Return>', trySession)
+    root.bind('<Escape>', backToMain)
 
 #Display Main Page GUI
 def backToMain(event = None):
     urlEntry.delete(0, 'end')
+    sessionEntry.delete(0, 'end')
     root.unbind('<Return>')
-    root.unbind('<Escaoe>')
+    root.unbind('<Escape>')
     urlframe.grid_forget()
     playerframe.grid_forget()
+    sessionFrame.grid_forget()
     mainframe.grid()
     return
 
@@ -59,10 +79,7 @@ def togglePlayerUIElements(enabled):
     exitPlayerButton.configure(state=setState)
     playlistBox.configure(state=setState)
 
-def blank():
-    return
-
-#Test if URL entered is valid, set up music player if valid
+#Test if URL entered is valid, go to name session if valid
 def tryURL(event = None):
     urlEntryButton.configure(state="disabled")
     urlEntryCancelButton.configure(state="disabled")
@@ -78,8 +95,39 @@ def tryURL(event = None):
                 raise Exception()
             info = ydl.extract_info(link, download=False)
         except:
-            messagebox.showerror("Invalid URL", "Could not find playlist from URL.\n(Tip: it should have \"/playlist?list=\" in it)")
+            messagebox.showerror("Issue Fetching Playlist", "Could not find playlist from URL.\n(Tip: it should have \"/playlist?list=\" in it)")
         else:
+            global playlist
+            playlist = link
+            nameSession()    
+        urlEntry.delete(0, 'end')
+        urlEntryButton.configure(state="normal")
+        urlEntryCancelButton.configure(state="normal")
+
+#Test if session name is valid, set up music player if valid
+def trySession(event = None):
+    global sessionSavePath
+    
+    sessionEntryButton.configure(state="disabled")
+    name = sessionEntry.get()
+    
+    try:
+        if not name.isalnum() or os.path.isfile(f'{sessionSavePath}/{name}.txt') is True:
+            raise Exception()
+        
+    except:
+        messagebox.showerror("Issue Starting Session", "Session name was invalid or already exists. Please enter a valid session name.")
+
+    else:
+        global sessionName
+        global playlist
+        sessionName = f"{name}.txt"
+        ydl_opts = {
+        'quiet': True,
+        "extract_flat": True
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(playlist, download=False)
             parsedInfo = ydl.sanitize_info(info)['entries']
             playlistURLs = []
             playlistNames = []
@@ -89,31 +137,34 @@ def tryURL(event = None):
                 if link != None and title != None:
                     playlistURLs.append(link)
                     playlistNames.append(title)
-            setupPlayer(playlistURLs, playlistNames)
-            
-        urlEntry.delete(0, 'end')
-        urlEntryButton.configure(state="normal")
-        urlEntryCancelButton.configure(state="normal")
+        setupPlayer(playlistURLs, playlistNames)
+    sessionEntry.delete(0, 'end') 
+    sessionEntryButton.configure(state="normal")
+        
 
 #Display player GUI, loads playlist into music player
 def setupPlayer(playlistURLs, playlistNames, pos = 0):
+    global sessionSavePath
+    global sessionName
     root.unbind('<Return>')
-    root.unbind('<Escaoe>')
+    root.unbind('<Escape>')
     
     mainframe.grid_forget()
     urlframe.grid_forget()
+    sessionFrame.grid_forget()
     playerframe.grid()
-    togglePlayerUIElements(False)
     
-    session = open("session.txt", "w", encoding = 'utf8')
+    session = open(f"{sessionSavePath}/{sessionName}", "w", encoding = 'utf8')
     session.write("0\n")
-    session = open("session.txt", "a", encoding = 'utf8')
+    session = open(f"{sessionSavePath}/{sessionName}", "a", encoding = 'utf8')
     for song in playlistNames:
         session.write("{}\n".format(song))
         playlistBox.insert("end", song)
     for song in playlistURLs:
         session.write("{} ".format(song))
     session.close()
+    
+    togglePlayerUIElements(False)
     
     global loop
     loop = asyncio.create_task(player(playlistURLs, pos))
@@ -127,6 +178,9 @@ def resumePlayer(playlistURLs, pos):
     
 #plays music in playlist, updates session file
 async def player(playlistURLs, startPos):
+    global sessionSavePath
+    global sessionName
+    
     ydl_opts = {
     'format': 'bestaudio/best',
     'quiet': True,
@@ -140,14 +194,13 @@ async def player(playlistURLs, startPos):
                 except:
                     pass
                 else:
-                    session = open("session.txt", "r", encoding = 'utf8')
+                    session = open(f"{sessionSavePath}/{sessionName}", "r", encoding = 'utf8')
                     lines = session.readlines()
                     lines[0] = "{}\n".format(str(pos))
-                    session = open("session.txt", "w", encoding = 'utf8')
+                    session = open(f"{sessionSavePath}/{sessionName}", "w", encoding = 'utf8')
                     session.writelines(lines)
                     session.close()
                     mediaPlayer.stop()
-                    playlistBox.select_clear(0, len(playlistURLs) - 1)
         
                     if pos == 0:
                         prevButton.configure(state="disabled")
@@ -161,6 +214,7 @@ async def player(playlistURLs, startPos):
 
                     await asyncio.sleep(0.5) # disabled buttons will trigger events once reenabled without this... I guess
                     togglePlayerUIElements(True)
+                    playlistBox.select_clear(0, len(playlistURLs) - 1)
                     playlistBox.selection_set(pos)
                     playlistBox.see(pos)
                     
@@ -170,7 +224,10 @@ async def player(playlistURLs, startPos):
 
 #Play previous song in playlist
 def prevSong():
-    session = open("session.txt", "r", encoding = 'utf8')
+    global sessionSavePath
+    global sessionName
+    
+    session = open(f"{sessionSavePath}/{sessionName}", "r", encoding = 'utf8')
     lines = session.readlines()
     session.close()
     if int(lines[0] != 0):
@@ -197,7 +254,10 @@ def playSong():
 
 #Play next song in playlist
 def nextSong():
-    session = open("session.txt", "r", encoding = 'utf8')
+    global sessionName
+    global sessionSavePath
+    
+    session = open(f"{sessionSavePath}/{sessionName}", "r", encoding = 'utf8')
     lines = session.readlines()
     session.close()
     if int(lines[0]) != len(lines[-1].split()) - 1:
@@ -210,9 +270,12 @@ def nextSong():
 
 #Play song manually selected from listbox
 def onSelect(event):
+    global sessionName
+    global sessionSavePath
+    
     widget = event.widget
     index = int(widget.curselection()[0])
-    session = open("session.txt", "r", encoding = 'utf8')
+    session = open(f"{sessionSavePath}/{sessionName}", "r", encoding = 'utf8')
     lines = session.readlines()
     session.close()
     if int(lines[0]) != len(lines[-1].split()) - 1:
@@ -224,11 +287,13 @@ def onSelect(event):
 
 #Shuffle playlist and play from beginning
 def shufflePlaylist():
-    togglePlayerUIElements(False)
-    mediaPlayer.stop()
     global loop
+    global sessionName
+    global sessionSavePath
+    
+    mediaPlayer.stop()
     loop.cancel()
-    session = open("session.txt", "r", encoding = 'utf8')
+    session = open(f"{sessionSavePath}/{sessionName}", "r", encoding = 'utf8')
     lines = session.readlines()
     session.close()
     names = [lines[line] for line in range(1, len(lines) - 1)]
@@ -243,9 +308,9 @@ def shufflePlaylist():
     names = [name.get("name") for name in temp]
     urls = [url.get("url") for url in temp]
     playlistBox.delete(0, "end")
-    session = open("session.txt", "w", encoding = 'utf8')
+    session = open(f"{sessionSavePath}/{sessionName}", "w", encoding = 'utf8')
     session.write("0\n")
-    session = open("session.txt", "a", encoding = 'utf8')
+    session = open(f"{sessionSavePath}/{sessionName}", "a", encoding = 'utf8')
     for song in names:
         try:
             session.write("{}".format(song))
@@ -259,6 +324,7 @@ def shufflePlaylist():
         except:
             pass
     session.close()
+    togglePlayerUIElements(False)
     resumePlayer(urls, 0)
     return
 
@@ -271,8 +337,6 @@ def exitToMain():
     playerframe.grid_forget()
     playlistBox.delete(0, "end")
     mainframe.grid()
-    if os.path.isfile('session.txt') is True:
-        resumeSessionButton["state"] = "NORMAL"
     
 #Main Frame and Widgets
 root = Tk()
@@ -308,6 +372,26 @@ urlEntryCancelButton = ttk.Button(urlEntryButtonFrame, text = "Cancel", command 
 urlEntryCancelButton.grid(column = 3, row = 3, sticky = E)
 
 urlframe.grid_forget()
+
+sessionFrame = ttk.Frame(root, padding = "20 10 100 10")
+sessionFrame.grid(column = 0, row = 0, sticky = (N, W, E, S))
+
+sessionLabel = ttk.Label(sessionFrame, text = "Choose a Session Name (alphanumeric only, please)")
+sessionLabel.grid(column = 2, row = 1, sticky = W)
+
+name = StringVar()
+sessionEntry = ttk.Entry(sessionFrame, width = 80, textvariable = "name")
+sessionEntry.grid(column = 2, row = 2, sticky = W)
+
+sessionEntryButtonFrame = ttk.Frame(sessionFrame)
+sessionEntryButtonFrame.grid(column = 2, row = 3, sticky = E)
+
+sessionEntryButton = ttk.Button(sessionEntryButtonFrame, text = "Start Session", default = "active", command = trySession)
+sessionEntryButton.grid(column = 2, row = 3, sticky = E)
+sessionEntryCancelButton = ttk.Button(sessionEntryButtonFrame, text = "Cancel", command = backToMain)
+sessionEntryCancelButton.grid(column = 3, row = 3, sticky = E)
+
+sessionFrame.grid_remove()
 
 #Playlist Frame and Widgets
 playerframe = ttk.Frame(root, padding = "50 20 50 20")
@@ -353,9 +437,15 @@ mediaPlayer = vlc.MediaPlayer()
 loop = None
 stop = False
 
+path = os.path.dirname(os.path.abspath(__file__))
+if not os.path.exists(f"{path}/sessions"):
+    os.makedirs(f"{path}/sessions")       
+sessionSavePath = f"{path}/sessions"
+
+sessionName = "session.txt"
+playlist = ""
+
 #Check for Session File, Display Main Page GUI
-if os.path.isfile('session.txt') is False:
-    resumeSessionButton.state(['disabled'])
 root.resizable(width=False, height=False)
 
 async def run_tk(root, interval=0.05):
