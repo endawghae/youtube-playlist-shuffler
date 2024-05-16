@@ -12,7 +12,9 @@ import yt_dlp
 def newSession():
     mainframe.grid_forget()
     playerframe.grid_forget()
+    
     urlframe.grid()
+    
     root.bind('<Return>', tryURL)
     root.bind('<Escape>', backToMain)
     return
@@ -21,9 +23,11 @@ def newSession():
 def resumeSession():
     root.unbind('<Return>')
     root.unbind('<Escaoe>')
+    
     mainframe.grid_forget()
     urlframe.grid_forget()
     playerframe.grid()
+    
     session = open("session.txt", "r", encoding = 'utf8')
     lines = session.readlines()
     session.close()
@@ -42,8 +46,27 @@ def backToMain(event = None):
     mainframe.grid()
     return
 
+#Toggle player UI Elements
+def togglePlayerUIElements(enabled):
+    setState = "disabled"
+    if enabled is True:
+        setState = "normal"
+    prevButton.configure(state=setState)
+    pauseButton.configure(state=setState)
+    playButton.configure(state=setState)
+    nextButton.configure(state=setState)
+    shuffleButton.configure(state=setState)
+    exitPlayerButton.configure(state=setState)
+    playlistBox.configure(state=setState)
+
+def blank():
+    return
+
 #Test if URL entered is valid, set up music player if valid
 def tryURL(event = None):
+    urlEntryButton.configure(state="disabled")
+    urlEntryCancelButton.configure(state="disabled")
+    
     link = urlEntry.get()
     ydl_opts = {
     'quiet': True,
@@ -51,9 +74,11 @@ def tryURL(event = None):
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
+            if "/playlist?list=" not in link:
+                raise Exception()
             info = ydl.extract_info(link, download=False)
         except:
-            messagebox.showerror("Invalid URL", "Could not find playlist from URL")
+            messagebox.showerror("Invalid URL", "Could not find playlist from URL.\n(Tip: it should have \"/playlist?list=\" in it)")
         else:
             parsedInfo = ydl.sanitize_info(info)['entries']
             playlistURLs = []
@@ -65,15 +90,21 @@ def tryURL(event = None):
                     playlistURLs.append(link)
                     playlistNames.append(title)
             setupPlayer(playlistURLs, playlistNames)
+            
         urlEntry.delete(0, 'end')
+        urlEntryButton.configure(state="normal")
+        urlEntryCancelButton.configure(state="normal")
 
 #Display player GUI, loads playlist into music player
 def setupPlayer(playlistURLs, playlistNames, pos = 0):
     root.unbind('<Return>')
     root.unbind('<Escaoe>')
+    
     mainframe.grid_forget()
     urlframe.grid_forget()
     playerframe.grid()
+    togglePlayerUIElements(False)
+    
     session = open("session.txt", "w", encoding = 'utf8')
     session.write("0\n")
     session = open("session.txt", "a", encoding = 'utf8')
@@ -83,11 +114,14 @@ def setupPlayer(playlistURLs, playlistNames, pos = 0):
     for song in playlistURLs:
         session.write("{} ".format(song))
     session.close()
+    
     global loop
     loop = asyncio.create_task(player(playlistURLs, pos))
 
 #loads playlist into player from file
 def resumePlayer(playlistURLs, pos):
+    togglePlayerUIElements(False)
+    
     global loop
     loop = asyncio.create_task(player(playlistURLs, pos))
     
@@ -99,26 +133,6 @@ async def player(playlistURLs, startPos):
     "extract_flat": True
     }
     for pos in range(startPos, len(playlistURLs)):
-        session = open("session.txt", "r", encoding = 'utf8')
-        lines = session.readlines()
-        lines[0] = "{}\n".format(str(pos))
-        session = open("session.txt", "w", encoding = 'utf8')
-        session.writelines(lines)
-        session.close()
-        mediaPlayer.stop()
-        playlistBox.select_clear(0, len(playlistURLs) - 1)
-        playlistBox.selection_set(pos)
-        playlistBox.see(pos)
-        prevButton["state"] = "NORMAL"
-        pauseButton["state"] = "NORMAL"
-        playButton["state"] = "NORMAL"
-        nextButton["state"] = "NORMAL"
-        shuffleButton["state"] = "NORMAL"
-        exitPlayerButton["state"] = "NORMAL"
-        if pos == 0:
-            prevButton.state(["disabled"])
-        elif pos == len(playlistURLs) - 1:
-            nextButton.state(["disabled"])
         if playlistURLs[pos] != None:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
@@ -126,10 +140,30 @@ async def player(playlistURLs, startPos):
                 except:
                     pass
                 else:
+                    session = open("session.txt", "r", encoding = 'utf8')
+                    lines = session.readlines()
+                    lines[0] = "{}\n".format(str(pos))
+                    session = open("session.txt", "w", encoding = 'utf8')
+                    session.writelines(lines)
+                    session.close()
+                    mediaPlayer.stop()
+                    playlistBox.select_clear(0, len(playlistURLs) - 1)
+        
+                    if pos == 0:
+                        prevButton.configure(state="disabled")
+                    elif pos == len(playlistURLs) - 1:
+                        nextButton.configure(state="disabled")
+                    
                     media = vlc.Media(song['url'])
                     media.get_mrl()
                     mediaPlayer.set_media(media)
                     mediaPlayer.play()
+
+                    await asyncio.sleep(0.5) # disabled buttons will trigger events once reenabled without this... I guess
+                    togglePlayerUIElements(True)
+                    playlistBox.selection_set(pos)
+                    playlistBox.see(pos)
+                    
                     await asyncio.sleep(5)
                     while mediaPlayer.is_playing() or mediaPlayer.get_state() == vlc.State.Paused:
                         await asyncio.sleep(1)
@@ -140,12 +174,7 @@ def prevSong():
     lines = session.readlines()
     session.close()
     if int(lines[0] != 0):
-        prevButton.state(["disabled"])
-        pauseButton.state(["disabled"])
-        playButton.state(["disabled"])
-        nextButton.state(["disabled"])
-        shuffleButton.state(["disabled"])
-        exitPlayerButton.state(["disabled"])
+        togglePlayerUIElements(False)
         mediaPlayer.stop()
         global loop
         loop.cancel()
@@ -172,12 +201,7 @@ def nextSong():
     lines = session.readlines()
     session.close()
     if int(lines[0]) != len(lines[-1].split()) - 1:
-        prevButton.state(["disabled"])
-        pauseButton.state(["disabled"])
-        playButton.state(["disabled"])
-        nextButton.state(["disabled"])
-        shuffleButton.state(["disabled"])
-        exitPlayerButton.state(["disabled"])
+        togglePlayerUIElements(False)
         mediaPlayer.stop()
         global loop
         loop.cancel()
@@ -192,12 +216,7 @@ def onSelect(event):
     lines = session.readlines()
     session.close()
     if int(lines[0]) != len(lines[-1].split()) - 1:
-        prevButton.state(["disabled"])
-        pauseButton.state(["disabled"])
-        playButton.state(["disabled"])
-        nextButton.state(["disabled"])
-        shuffleButton.state(["disabled"])
-        exitPlayerButton.state(["disabled"])
+        togglePlayerUIElements(False)
         mediaPlayer.stop()
         global loop
         loop.cancel()
@@ -205,12 +224,7 @@ def onSelect(event):
 
 #Shuffle playlist and play from beginning
 def shufflePlaylist():
-    prevButton.state(["disabled"])
-    pauseButton.state(["disabled"])
-    playButton.state(["disabled"])
-    nextButton.state(["disabled"])
-    shuffleButton.state(["disabled"])
-    exitPlayerButton.state(["disabled"])
+    togglePlayerUIElements(False)
     mediaPlayer.stop()
     global loop
     loop.cancel()
@@ -317,6 +331,9 @@ playlistFrame = ttk.Frame(playerframe)
 playlistFrame.columnconfigure(0, weight = 1)
 playlistFrame.grid(column = 2, row = 2, sticky = (N, W, E, S))
 
+playerframeOverlay = ttk.Frame(root, padding = "50 20 50 20")
+playerframeOverlay.grid(column = 0, row = 0, sticky = (N, W, E, S))
+
 #listbox refuses to fit by itself so I'm manually eyeballing it
 playlistBox = Listbox(playlistFrame, selectmode = "single", height = 10, width = 47)
 playlistBox.bind('<<ListboxSelect>>', onSelect)
@@ -329,6 +346,7 @@ exitPlayerButton = ttk.Button(playerframe, text = "Exit", command = exitToMain)
 exitPlayerButton.grid(column = 2, row = 3, sticky = E)
 
 playerframe.grid_forget()
+playerframeOverlay.grid_remove()
 
 #Media Player
 mediaPlayer = vlc.MediaPlayer()
