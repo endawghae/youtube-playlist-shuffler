@@ -437,7 +437,10 @@ mediaPlayer = vlc.MediaPlayer()
 loop = None
 stop = False
 
-path = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    path = os.path.dirname(sys.executable)
+else:
+    path = os.path.dirname(os.path.abspath(__file__))
 if not os.path.exists(f"{path}/sessions"):
     os.makedirs(f"{path}/sessions")       
 sessionSavePath = f"{path}/sessions"
